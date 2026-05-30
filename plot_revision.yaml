@@ -1,0 +1,29 @@
+name: Evo2HiC-plot
+channels:
+  - conda-forge
+  - bioconda
+  - pytorch
+dependencies:
+  - python=3.10
+  - numpy
+  - pandas
+  - scipy
+  - tqdm
+  - matplotlib
+  - seaborn
+  - statsmodels
+  - scikit-learn
+  - biopython
+  - umap-learn
+  - nbformat
+  - jupyter
+  - pybigwig
+  - hic-straw
+  - cooler
+  - cooltools
+  - pytorch
+  - pip
+  - pip:
+    - pycirclize
+    - tangermeme
+    - matplotlib-venn

@@ -1,0 +1,1 @@
+colors = ['#fb8072', '#bebada', '#80b1d3', '#8dd3c7', '#fddaec']
