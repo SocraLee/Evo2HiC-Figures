@@ -46,7 +46,7 @@ Regenerate a missing one with (see paths.py):
       --save-dir track --species human
 
 Panel c reads the shipped held-out-chrom super-resolution metric tables
-  RESULT_HUMAN_DIR/PCC.csv  and  RESULT_MOUSE_DIR/PCC.csv
+  RESULT_SUPP22_HUMAN/PCC.csv  and  RESULT_SUPP22_MOUSE/PCC.csv
 (columns: hic, Evo2HiC, SigLIP, Unet, HiCNN, HiCARN1, HiCARN2). `Unet` is the
 no-distillation ablation. The `hic` accession is mapped back to a biosource via
 data/hic_index.tsv. These are the same tables Fig 6 / Supp 17 use; see the SR
@@ -70,7 +70,7 @@ from matplotlib.lines import Line2D
 from scipy.stats import pearsonr
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from paths import (REPO, RESULT_HUMAN_DIR, RESULT_MOUSE_DIR,                # noqa: E402
+from paths import (REPO, RESULT_SUPP22_HUMAN, RESULT_SUPP22_MOUSE,                # noqa: E402
                    EPI_EVO2HIC_DIR, EPI_NODISTILL_DIR, ensure_out_dir)
 
 OUT_PDF = ensure_out_dir() / "supplementary_22.pdf"
@@ -184,7 +184,7 @@ def load_resenh_rel():
     idx = pd.read_csv(HIC_INDEX, sep="\t")
     acc2bs = {r["Hi-C Accession"]: r["Biosource"] for _, r in idx.iterrows()}
     frames = []
-    for sp, d in (("human", RESULT_HUMAN_DIR), ("mouse", RESULT_MOUSE_DIR)):
+    for sp, d in (("human", RESULT_SUPP22_HUMAN), ("mouse", RESULT_SUPP22_MOUSE)):
         df = pd.read_csv(d / "PCC.csv", sep="\t")
         df["species"] = sp
         df["cell"] = df["hic"].map(acc2bs)

@@ -29,8 +29,8 @@ from matplotlib.lines import Line2D
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from paths import (                                              # noqa: E402
     ensure_out_dir,
-    RESULT_HUMAN_DIR, RESULT_MOUSE_DIR,
-    SPC_MULTI_CSV, CLAUDE_CLADE_DIR, TREE_NWK,
+    RESULT_SUPP17_HUMAN, RESULT_SUPP17_MOUSE,
+    SPC_SUPP17, CLAUDE_CLADE_DIR, TREE_NWK,
 )
 
 from plot_settings import colors as candidate_colors  # noqa: E402
@@ -114,12 +114,12 @@ def panel_polar_tree(ax_bottom):
             return species.split("__")[0]
         return species
 
-    result = pd.read_csv(SPC_MULTI_CSV, sep="\t")
+    result = pd.read_csv(SPC_SUPP17, sep="\t")
     species_list = [name_mapping(s) for s in result["species"].tolist()]
     improve = (result[methods[0]] - result[methods[1]]).tolist()
     species2improve = dict(zip(species_list, improve))
 
-    _human_spc = pd.read_csv(RESULT_HUMAN_DIR / "SPC.csv", sep="\t")
+    _human_spc = pd.read_csv(RESULT_SUPP17_HUMAN / "SPC.csv", sep="\t")
     homo_improve = float(_human_spc["Evo2HiC"].mean() - _human_spc["Unet"].mean())
 
     claude_name_list = [
@@ -318,13 +318,13 @@ def main():
 
     metrics = ["PCC", "SPC", "PSNR", "SSIM"]
 
-    panel_metric_row(axes_top[0], RESULT_HUMAN_DIR, "SuppFig17a_Human", metrics)
+    panel_metric_row(axes_top[0], RESULT_SUPP17_HUMAN, "SuppFig17a_Human", metrics)
     _row_title(fig, axes_top[0], "Human")
-    _print_ablation_summary("Human", RESULT_HUMAN_DIR, metrics)
+    _print_ablation_summary("Human", RESULT_SUPP17_HUMAN, metrics)
 
-    panel_metric_row(axes_top[1], RESULT_MOUSE_DIR, "SuppFig17b_Mouse", metrics)
+    panel_metric_row(axes_top[1], RESULT_SUPP17_MOUSE, "SuppFig17b_Mouse", metrics)
     _row_title(fig, axes_top[1], "Mouse")
-    _print_ablation_summary("Mouse", RESULT_MOUSE_DIR, metrics)
+    _print_ablation_summary("Mouse", RESULT_SUPP17_MOUSE, metrics)
 
     add_top_legend(fig, axes_top)
 
