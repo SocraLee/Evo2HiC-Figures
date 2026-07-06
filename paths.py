@@ -24,7 +24,7 @@ Layout conventions
 * result tables live under `RESULT_DIR/<figure>/…` (one folder per figure:
   fig1, fig2, …, supp12, supp13, …). A table consumed by several figures is
   written into each of their folders by the producing helper — so every
-  figure folder is self-contained. Producers live in `plot_revision/helper/`.
+  figure folder is self-contained. Producers live in the `helper/` folder.
 * This file is ordered by figure (Fig 1 → Fig 6, then Supp). Paths shared by
   many figures are defined once in the "Shared inputs" block; each figure
   section lists which shared paths it also needs.
@@ -66,7 +66,7 @@ HIC_DATA_ROOT = Path(os.environ.get(
 
 
 # ===========================================================================
-# Shared inputs (used by many figures — defined once)
+# Shared inputs (used by many figures)
 # ===========================================================================
 
 # ---- Raw genome / Hi-C / tracks (config.* mirrors) ------------------------
@@ -242,17 +242,20 @@ def EPI_EVO2_DIR(cell: str) -> Path:
 
 # ---- Supp 10 — external DNA->epigenome baselines (Borzoi, AlphaGenome) -----
 # These predictions are NOT shipped in the main repo. Regenerate them with the
-# helper scripts copied into plot_revision/helper/ (see helper/README.md), then
+# helper scripts copied into the `helper/` folder (see helper/README.md), then
 # point the two dirs below at the produced `results/<model>/` folder. Each holds
 # `<cell>/{9,10}.npy` (shape 5×n_bins) + `result.tsv` (per-cell/chr/track PCC).
 #
 #   Borzoi      : public pretrained Borzoi via the `borzoi-pytorch` HF port
 #                 (github.com/johahi/borzoi-pytorch; model calico/borzoi).
 #                 Zero-shot; we pick the 15 (cell×assay) heads relevant to us.
-#                 Reproduce: PY -m helper.borzoi_inference ; PY -m helper.borzoi_eval
+#                 Reproduce (from inside this folder, repo root on PYTHONPATH):
+#                   PY -m helper.borzoi_inference --save-dir ../result/supp10/borzoi
+#                   PY -m helper.borzoi_eval      --pred-dir ../result/supp10/borzoi
 #   AlphaGenome : Google DeepMind AlphaGenome (fold-1 released weights) via the
-#                 official alphagenome API. Reproduce: PY -m helper.alphagenome_inference
-#                 ; PY -m helper.alphagenome_eval
+#                 official alphagenome API. Reproduce (from inside this folder):
+#                   PY -m helper.alphagenome_inference --save-dir ../result/supp10/alphagenome
+#                   PY -m helper.alphagenome_eval      --pred-dir ../result/supp10/alphagenome
 # Not shipped — download/regenerate into these folders (see helper/README.md).
 BORZOI_DIR = Path(os.environ.get("EVO2HIC_BORZOI_DIR",     RESULT_DIR / "supp10" / "borzoi"))
 AG_DIR     = Path(os.environ.get("EVO2HIC_ALPHAGENOME_DIR", RESULT_DIR / "supp10" / "alphagenome"))
