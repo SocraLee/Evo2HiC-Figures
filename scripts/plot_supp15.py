@@ -1,355 +1,150 @@
-"""Supplementary Figure 15: Cross-species generalisation summary.
+"""Supplementary Figure 15 — representative loops, decomposed by anchor state.
 
-Adapted from `plot/plot_Fig6_revision.ipynb`. Rows 1 & 2 (Human / Mouse
-held-out chromosomes) are pared down to the Evo2HiC vs Evo2HiC(HiC-only)
-ablation only, isolating the contribution of the Evo2 sequence prior on
-the same training cell line. Row 3 reuses the DNA Zoo polar tree showing
-per-species Evo2HiC − HiC-only SPC improvement across 177 species.
+Application (rebuttal: "give a use-case for the predicted epigenomics"). Hi-C
+physically measures which loci touch; the model's PREDICTED epigenomics
+(DNA + Hi-C -> 5 tracks) then assign a functional state to each loop anchor.
+This panel shows three ground-truth HiCCUPS loops, one per representative
+class, and demonstrates that the model's predicted anchor signature recovers
+the real ChIP-seq one:
 
-Produces:
-  Figures/supplementary_15.pdf
-  Figures/supplementary_15_stats.tsv
+  row 1  Insulator (CTCF)        — intergenic CTCF/cohesin architectural loop
+  row 2  Promoter-promoter       — active regulatory contact (e.g. SLK-SFR1)
+  row 3  Bivalent (repressive)   — poised developmental loop (e.g. VAX1-EMX2)
+
+Layout (3 rows x 3 cols): Hi-C contact map (loop circled, 5 kb) | anchor-A
+signature | anchor-B signature. Each signature is a 2x4 heatmap (rows
+real / predicted; cols CTCF, H3K4me3, H3K27ac, H3K27me3) for the gene at
+that anchor.
+
+Generating the data (see paths.py "Hi-C loop functional decomposition" for the
+exact commands; the pipeline lives under revision/loop_decomposition/ and needs
+the Evo2HiC env with torch + hic-straw):
+  HiCCUPS loops    : juicer_tools hiccups ... -> HIC_LOOP_BEDPE(<acc>)  (step 0)
+  predicted tracks : already shipped under EPI_EVO2HIC_DIR (== LOOP_PRED_TRACK);
+                     regenerate with inference_CDNA1d --save-dir track.
+  real tracks      : per-cell hic2track BigWigs (HIC2TRACK) — same epigenomic
+                     source as Fig 4 / Supp 8, 10-12, 16, 18.
+This figure reads the predicted tracks + real tracks + the raw .hic directly;
+it does NOT need loop_labels.tsv (the loci are hand-picked typical examples).
+
+Outputs
+-------
+Figures/supplementary_15.pdf
+Figures/supplementary_15.png
 """
-from __future__ import annotations
-
-import os
 import sys
-from collections import defaultdict
 from pathlib import Path
 
-import matplotlib as mpl
-import matplotlib.gridspec as gridspec
-import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
-import seaborn as sns
-from Bio import Phylo
-from matplotlib.colorbar import ColorbarBase
-from matplotlib.colors import Normalize
-from matplotlib.lines import Line2D
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from paths import (                                              # noqa: E402
-    REPO, ensure_out_dir,
-    RESULT_HUMAN_DIR, RESULT_MOUSE_DIR,
-    SPC_MULTI_CSV, CLAUDE_CLADE_DIR, TREE_NWK,
+    ensure_out_dir, add_repo_to_syspath,
+    HIC_RAW, HIC2TRACK, LOOP_PRED_TRACK,
 )
+add_repo_to_syspath()
 
-from plot_settings import colors as candidate_colors  # noqa: E402
-from plot_utils import (  # noqa: E402
-    clear_test_log,
-    dump_test_log,
-    plot_box_with_points,
-)
+from dataset.hic_loader import HiC_Loader                        # noqa: E402
+from dataset.track_loader import Track_Loader                    # noqa: E402
 
-OUT_PDF = ensure_out_dir() / "supplementary_15.pdf"
-OUT_STATS = ensure_out_dir() / "supplementary_15_stats.tsv"
+OUT_PDF = ensure_out_dir() / 'supplementary_15.pdf'
+OUT_PNG = ensure_out_dir() / 'supplementary_15.png'
 
-plt.style.use("seaborn-v0_8-white")
-plt.rcParams.update({"font.size": 8, "font.family": "Arial"})
+ACC = {'H1ESC': '4DNFIQYQWPF5', 'GM12878': '4DNFI1UEG1HD'}       # config.hic_data_dir accessions
+RES_T, RES_H = 2000, 5000
+MARKS = ['DNase', 'CTCF', 'H3K27ac', 'H3K27me3', 'H3K4me3']      # config.tracks order
+ti = {m: i for i, m in enumerate(MARKS)}
+SHOW = ['CTCF', 'H3K4me3', 'H3K27ac', 'H3K27me3']
 
-color_maps = {
-    "Evo2HiC": candidate_colors[0],
-    "Evo2HiC(HiC-only)": "#fdb462",
-}
-ABLATION_METHODS = ["Evo2HiC", "Evo2HiC(HiC-only)"]
-ABLATION_COLORS = [color_maps[m] for m in ABLATION_METHODS]
-SIG_PAIR = ("Evo2HiC", "Evo2HiC(HiC-only)")
+# (row label, cell, chrom, anchorA bp, geneA, anchorB bp, geneB)
+EX = [
+    ('Insulator\n(CTCF)', 'H1ESC', 9, 74_775_000, 'CTCF site', 75_005_000, 'CTCF site'),
+    ('Promoter–promoter\n(active)', 'GM12878', 10, 103_965_000, 'SLK', 104_125_000, 'SFR1'),
+    ('Bivalent\n(repressive)', 'H1ESC', 10, 117_135_000, 'VAX1', 117_545_000, 'EMX2'),
+]
 
+plt.style.use('seaborn-v0_8-white')
+plt.rcParams.update({'font.size': 8, 'font.family': 'Arial',
+                     'pdf.fonttype': 42, 'ps.fonttype': 42})
 
-def _load(path: Path) -> pd.DataFrame:
-    return pd.read_csv(path, sep="\t").rename(columns={"Unet": "Evo2HiC(HiC-only)"})
-
-
-def _row_title(fig, axs_row, text):
-    bbox_left = axs_row[0].get_position()
-    bbox_right = axs_row[-1].get_position()
-    center_x = (bbox_left.x0 + bbox_right.x1) / 2
-    top_y = max(ax.get_position().y1 for ax in axs_row)
-    fig.text(center_x, top_y + 0.01, text, ha="center", va="bottom", fontsize=12)
+_hic, _trk, _pred = {}, {}, {}
 
 
-def _print_ablation_summary(label: str, root: Path, metrics):
-    print(f"\n=== Evo2HiC vs Evo2HiC(HiC-only) ({label}, per metric) ===")
-    for met in metrics:
-        df = _load(root / f"{met}.csv")
-        abs_impr = float(df["Evo2HiC"].mean() - df["Evo2HiC(HiC-only)"].mean())
-        rel_impr = float((df["Evo2HiC"] - df["Evo2HiC(HiC-only)"]).mean())
-        print(
-            f"  {met:4s}: mean(Evo2HiC) - mean(HiC-only) = {abs_impr:+.4f} | "
-            f"mean(Evo2HiC - HiC-only) = {rel_impr:+.4f}"
-        )
+def hic(cell):
+    if cell not in _hic:
+        _hic[cell] = HiC_Loader(str(HIC_RAW(ACC[cell])), resolution=RES_H)
+    return _hic[cell]
 
 
-def panel_metric_row(axes_row, root: Path, panel_tag: str, metrics):
-    for ax, met in zip(axes_row, metrics):
-        df = _load(root / f"{met}.csv")
-        plot_box_with_points(
-            ax, df, ABLATION_METHODS,
-            colors=ABLATION_COLORS,
-            ylabel=met,
-            point_size=2,
-            sig_pair=SIG_PAIR,
-            yticks_num=2,
-            log_panel=panel_tag,
-            log_metric=met,
-        )
+def trk(cell):
+    if cell not in _trk:
+        _trk[cell] = Track_Loader(str(HIC2TRACK(cell)), resolution=RES_T)
+    return _trk[cell]
 
 
-def panel_polar_tree(ax_bottom):
-    """DNA Zoo polar tree of per-species Evo2HiC − HiC-only SPC improvement.
-
-    Faithful port of cell 21–22 of plot_Fig6_revision.ipynb. The lower-half
-    of the figure shows a circular phylogeny with leaves coloured by clade
-    and an outer bar track encoding ΔSPC (Evo2HiC − Unet) per species.
-    """
-    methods = ["EvoHiC", "Unet"]
-
-    def name_mapping(species):
-        synonym = {
-            "Herpailurus_yagouaroundi": "Puma_yagouaroundi",
-            "Eulemur_collaris": "Eulemur_fulvus_collaris",
-        }
-        if species in synonym:
-            return synonym[species]
-        if "__" in species:
-            return species.split("__")[0]
-        return species
-
-    result = pd.read_csv(SPC_MULTI_CSV, sep="\t")
-    species_list = [name_mapping(s) for s in result["species"].tolist()]
-    improve = (result[methods[0]] - result[methods[1]]).tolist()
-    species2improve = dict(zip(species_list, improve))
-
-    _human_spc = pd.read_csv(RESULT_HUMAN_DIR / "SPC.csv", sep="\t")
-    homo_improve = float(_human_spc["Evo2HiC"].mean() - _human_spc["Unet"].mean())
-
-    claude_name_list = [
-        "Angiosperms", "Protostomes", "Actinopterygii",
-        "Reptilia", "Mammalia", "Marsupialia",
-    ]
-    group_name2species_list = defaultdict(list)
-    for claude_name in claude_name_list:
-        cur_path = CLAUDE_CLADE_DIR / f"claude_{claude_name}_clean.txt"
-        with open(cur_path, "r") as f:
-            for line in f:
-                group_name2species_list[claude_name].append(line.strip("\n"))
-
-    _tree = Phylo.read(str(TREE_NWK), "newick")
-
-    _leaf2score = dict(species2improve)
-    _leaf2score["Homo_sapiens"] = homo_improve
-
-    def _subtree_mean_improve(clade):
-        vals = [_leaf2score.get(l.name, 0.0) for l in clade.get_terminals()]
-        return float(np.mean(vals)) if vals else 0.0
-
-    for _clade in _tree.find_clades():
-        if _clade.is_terminal():
-            continue
-        _desc = sorted(_clade.clades, key=_subtree_mean_improve, reverse=True)
-        _arranged = []
-        for _i, _c in enumerate(_desc):
-            if _i % 2 == 0:
-                _arranged.append(_c)
-            else:
-                _arranged.insert(0, _c)
-        _clade.clades = _arranged
-
-    _leaves_in_order = [t.name for t in _tree.get_terminals()]
-    _N = len(_leaves_in_order)
-    _scores_arr = np.array([_leaf2score.get(n, 0.0) for n in _leaves_in_order])
-    _theta = np.arange(_N) / _N * 2 * np.pi
-
-    _w_peak = np.clip(_scores_arr, 0.0, None)
-    _peak_c = np.sum(_w_peak * np.exp(1j * _theta)) / max(_w_peak.sum(), 1e-9)
-    _peak_tree_deg = float(np.degrees(np.angle(_peak_c))) % 360.0
-
-    _protostomes = set(group_name2species_list["Protostomes"])
-    _mask = np.array([n in _protostomes for n in _leaves_in_order], dtype=float)
-    if _mask.sum() > 0:
-        _proto_c = np.sum(_mask * np.exp(1j * _theta)) / _mask.sum()
-        _proto_tree_deg = float(np.degrees(np.angle(_proto_c))) % 360.0
-    else:
-        _proto_tree_deg = (_peak_tree_deg + 180.0) % 360.0
-
-    _target_peak_deg = 45.0
-    _raw_start = _target_peak_deg - _peak_tree_deg
-    _start_deg = _raw_start % 360.0
-    if _start_deg > 0.0:
-        _start_deg -= 360.0
-    _span = 360.0 - 1e-3
-    _end_deg = _start_deg + _span
-
-    from pycirclize import Circos
-    from pycirclize.utils import ColorCycler
-
-    circos, tv = Circos.initialize_from_tree(
-        _tree,
-        start=_start_deg,
-        end=_end_deg,
-        r_lim=(30, 80),
-        leaf_label_rmargin=21,
-        leaf_label_size=5,
-        ignore_branch_length=True,
-        label_formatter=lambda t: t.replace("_", " "),
-    )
-
-    S = set(tv.leaf_labels)
-    ColorCycler.set_cmap("tab10")
-    group_name2color = {name: ColorCycler() for name in group_name2species_list.keys()}
-    for group_name, sps in group_name2species_list.items():
-        color = group_name2color[group_name]
-        S.difference_update(set(sps))
-        sps = list(set(sps).intersection(set(tv.leaf_labels)))
-        if not sps:
-            continue
-        tv.set_node_line_props(sps, color=color, apply_label_color=True)
-
-    sector = circos.sectors[0]
-    bar_track = sector.add_track((80, 100))
-    species_list_t = tv.leaf_labels
-    height = []
-    min_clip = -0.02
-    for x in species_list_t:
-        if x == "Homo_sapiens":
-            height.append(homo_improve)
-            continue
-        if x in species2improve:
-            cur_val = max(min_clip, species2improve[x])
-            height.append(cur_val)
-        else:
-            height.append(0)
-
-    percentile_98 = np.percentile(height, 98)
-    percentile_98 = max(float(percentile_98), -min_clip)
-    height = np.minimum(height, percentile_98)
-    rad_list = np.arange(0, int(len(species_list_t))) + 0.5
-    my_cmap = sns.cubehelix_palette(as_cmap=True)
-    bar_norm = Normalize(vmin=min_clip, vmax=percentile_98)
-    bar_track.bar(
-        rad_list, height, vmin=min_clip - 0.003,
-        color=my_cmap(bar_norm(np.asarray(height))),
-    )
-
-    circos.plotfig(ax=ax_bottom)
-    circos.ax.legend(
-        handles=[Line2D([], [], label=n, color=c) for n, c in group_name2color.items()],
-        labelcolor=group_name2color.values(),
-        fontsize=7,
-        loc="center",
-        bbox_to_anchor=(0.5, 0.5),
-    )
-
-    return my_cmap, min_clip, percentile_98, species2improve, homo_improve, group_name2species_list
+def pred(cell, ch):
+    k = (cell, ch)
+    if k not in _pred:
+        _pred[k] = np.load(LOOP_PRED_TRACK(cell, ch))
+    return _pred[k]
 
 
-def add_polar_colorbar(fig, ax_bottom, my_cmap, min_clip, percentile_98):
-    for a in list(fig.axes):
-        if a.get_label() == "spc_cb":
-            a.remove()
-    fig.canvas.draw()
-    bbox = ax_bottom.get_position()
-    norm = Normalize(vmin=min_clip, vmax=percentile_98)
-    x0 = bbox.x1 + 0.015
-    y0 = bbox.y0 - 0.025
-    cax = fig.add_axes([x0, y0, 0.1, 0.01], label="spc_cb")
-    cax.set_clip_on(False)
-    cbar = ColorbarBase(cax, cmap=my_cmap, norm=norm, orientation="horizontal")
-    cbar.set_label("SPC absolute improvement", fontsize=8, labelpad=2)
-    cbar.ax.tick_params(labelsize=7, length=2)
-    cbar.outline.set_linewidth(0.6)
-
-
-def add_panel_labels(fig, axes_top, ax_bottom):
-    labels = ["a", "b"]
-    for ax, label in zip([axes_top[0][0], axes_top[1][0]], labels):
-        ax.text(
-            -0.2, 1.3, label,
-            transform=ax.transAxes,
-            fontsize=12, fontname="Arial", fontweight="bold",
-            ha="left", va="top",
-        )
-    ax_bottom.text(
-        -0.2, -0.2, "c",
-        transform=axes_top[1][0].transAxes,
-        fontsize=12, fontname="Arial", fontweight="bold",
-        ha="left", va="top",
-    )
-
-
-def add_top_legend(fig, axes_top):
-    pos0 = axes_top[0][0].get_position()
-    pos1 = axes_top[0][3].get_position()
-    x = (pos0.x0 + pos1.x1) / 2
-    y = pos0.y1 + 0.05
-    if hasattr(fig, "legend_") and fig.legend_ is not None:
-        fig.legend_.remove()
-    handles = [
-        Line2D([0], [0], marker="s", linestyle="", markersize=8,
-               markerfacecolor=color_maps[m], markeredgewidth=0,
-               alpha=0.8, label=m)
-        for m in ABLATION_METHODS
-    ]
-    fig.legend(
-        handles, ABLATION_METHODS,
-        loc="center", bbox_to_anchor=(x, y),
-        ncol=len(ABLATION_METHODS),
-        frameon=False, fontsize=8,
-        handletextpad=0.4, columnspacing=1.5, borderaxespad=0.1,
-    )
+def anchor_sig(cell, ch, c):
+    cb = c // RES_T
+    real = trk(cell).get(ch, (cb - 2) * RES_T, (cb + 3) * RES_T, 0).max(axis=1)
+    arr = pred(cell, ch)
+    p = arr[:, max(0, cb - 2):cb + 3].max(axis=1)
+    return np.array([[real[ti[m]] for m in SHOW], [p[ti[m]] for m in SHOW]])
 
 
 def main():
-    clear_test_log()
+    fig = plt.figure(figsize=(8.6, 6.6))
+    outer = GridSpec(len(EX), 3, width_ratios=[1.5, 1.2, 1.2], wspace=0.4, hspace=0.6,
+                     top=0.92, bottom=0.14)
+    im = None
+    for r, (lab, cell, ch, aA, gA, aB, gB) in enumerate(EX):
+        a1, a2 = min(aA, aB), max(aA, aB)
+        margin = max(60_000, int(0.4 * (a2 - a1)))
+        ws, we = ((a1 - margin) // RES_H) * RES_H, ((a2 + margin) // RES_H) * RES_H
+        M = np.nan_to_num(hic(cell).get(ch, ws, we, 0, ch, ws, we, 0, norm=True)[0])
 
-    fig = plt.figure(figsize=(8.27, 10))
-    gs = gridspec.GridSpec(
-        5, 4, figure=fig,
-        height_ratios=[2, 1, 2, 2, 7],
-        hspace=0, wspace=0.5,
-    )
+        axh = fig.add_subplot(outer[r, 0])
+        vmax = np.percentile(M[M > 0], 95) if (M > 0).any() else 1
+        axh.imshow(np.log1p(M), cmap='Reds', vmin=0, vmax=np.log1p(vmax),
+                   extent=(ws, we, we, ws), interpolation='none', aspect='auto')
+        axh.plot(aB, aA, 'o', mfc='none', mec='#1f4e79', ms=12, mew=1.5)
+        axh.plot(aA, aB, 'o', mfc='none', mec='#1f4e79', ms=12, mew=1.5)
+        axh.set_xticks([]); axh.set_yticks([])
+        axh.set_ylabel(f'{lab}\n({cell})', fontsize=9, fontweight='bold')
+        if r == 0:
+            axh.set_title('Hi-C  (loop circled)', fontsize=8.5)
 
-    axes_top = []
-    for i in [0, 2]:
-        row_axes = []
-        for j in range(4):
-            ax = fig.add_subplot(gs[i, j])
-            ax.set_xticks([])
-            ax.set_yticks([])
-            for spine in ax.spines.values():
-                spine.set_linewidth(0.5)
-            row_axes.append(ax)
-        axes_top.append(row_axes)
+        for ci, (c, gn) in enumerate([(aA, gA), (aB, gB)]):
+            sig = anchor_sig(cell, ch, c)
+            ax = fig.add_subplot(outer[r, 1 + ci])
+            im = ax.imshow(sig, cmap='Blues', vmin=0, vmax=1.0, aspect='auto')
+            ax.set_xticks(range(4)); ax.set_xticklabels(SHOW, rotation=40, ha='right', fontsize=7)
+            ax.set_yticks([0, 1]); ax.set_yticklabels(['Real', 'Pred'], fontsize=7.5)
+            ax.set_title((f'$\\it{{{gn}}}$' if gn not in ('CTCF site',) else gn), fontsize=8.5)
+            for i in range(2):
+                for j in range(4):
+                    ax.text(j, i, f'{sig[i,j]:.2f}', ha='center', va='center', fontsize=6.5,
+                            color='white' if sig[i, j] > 0.55 else 'black')
+            if ci == 1:  # small per-row colorbar, matched to this heatmap's height
+                ccax = make_axes_locatable(ax).append_axes('right', size='7%', pad=0.06)
+                cbb = fig.colorbar(im, cax=ccax)
+                cbb.set_ticks([0, 0.5, 1.0]); cbb.ax.tick_params(labelsize=5.5)
 
-    ax_bottom = fig.add_subplot(gs[4, :], projection="polar")
-    ax_bottom.set_xticks([])
-    ax_bottom.set_yticks([])
-
-    metrics = ["PCC", "SPC", "PSNR", "SSIM"]
-
-    panel_metric_row(axes_top[0], RESULT_HUMAN_DIR, "SuppFig15a_Human", metrics)
-    _row_title(fig, axes_top[0], "Human")
-    _print_ablation_summary("Human", RESULT_HUMAN_DIR, metrics)
-
-    panel_metric_row(axes_top[1], RESULT_MOUSE_DIR, "SuppFig15b_Mouse", metrics)
-    _row_title(fig, axes_top[1], "Mouse")
-    _print_ablation_summary("Mouse", RESULT_MOUSE_DIR, metrics)
-
-    add_top_legend(fig, axes_top)
-
-    my_cmap, min_clip, percentile_98, *_ = panel_polar_tree(ax_bottom)
-    add_polar_colorbar(fig, ax_bottom, my_cmap, min_clip, percentile_98)
-
-    add_panel_labels(fig, axes_top, ax_bottom)
-
-    fig.savefig(OUT_PDF, bbox_inches="tight")
-    print(f"\n[saved] {OUT_PDF}")
-
-    log_df = dump_test_log(str(OUT_STATS))
-    print(f"[saved] {OUT_STATS}")
-    print(log_df.to_string(index=False))
+    fig.savefig(OUT_PDF, dpi=300, bbox_inches='tight')
+    fig.savefig(OUT_PNG, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+    print(f'[ok] {OUT_PDF}')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

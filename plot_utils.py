@@ -16,7 +16,7 @@ def _add_log1p_cbar(fig, im, ax_or_axes, label="contacts (raw count)",
     """Attach a color bar to one or more axes, with tick labels in raw-count
     space (post-`np.expm1`) instead of `log1p` space. Used by all Hi-C
     heatmaps that plot `np.log1p(matrix)` with `vmin=log1p(0)` /
-    `vmax=log1p(100)` (Fig 3, Fig 6, Supp 16). Reviewer-asked
+    `vmax=log1p(100)` (Fig 3, Fig 6). Reviewer-asked
     color-bar addition (T_Mp2).
     """
     cb = fig.colorbar(im, ax=ax_or_axes, fraction=fraction, pad=pad)
@@ -279,7 +279,7 @@ def plot_grouped_box_with_points(
     ax.set_xlim(left, right)
     if ymin is not None:
         ax.set_ylim(bottom=ymin)
-    if ymax is not None:     # ← 修正了你原函数里重复判断 ymin 的小 bug
+    if ymax is not None:
         ax.set_ylim(top=ymax)
 
     sns.despine(ax=ax)
@@ -453,7 +453,6 @@ def plot_box_with_points(
     ax.tick_params(axis='y', length=2)
 
     # === 配对显著性（只一对） ===
-    results = None
     if sig_pair is not None:
         a, b = sig_pair
         if a in methods and b in methods:
@@ -511,4 +510,4 @@ def plot_box_with_points(
     if yticks_num is not None:
         ax.yaxis.set_major_locator(MaxNLocator(nbins=yticks_num))
 
-    return ax, results
+    return ax

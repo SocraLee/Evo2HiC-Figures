@@ -51,9 +51,8 @@ PANEL_LABEL_FONTSIZE = 7.5
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from paths import (                                              # noqa: E402
-    REPO, ensure_out_dir, add_repo_to_syspath,
+    ensure_out_dir, add_repo_to_syspath,
     RESULT_CROSSCELL_DIR as IN_DIR,
-    CKPT_ROOT as _CKPT_PATH,
     EPI_EVO2HIC_DIR, EPI_EVO2_DIR,
 )
 add_repo_to_syspath()

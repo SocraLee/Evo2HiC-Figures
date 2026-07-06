@@ -1,7 +1,6 @@
-"""Shared style + clade utilities for the supp 13 / 14 / 16 set.
+"""Shared style + clade utilities for the supp 13 / 19 / 20 set.
 
-Identical to plot/_supp_style.py but loads `CLAUDE_CLADE_DIR` from
-plot_revision/config.py so the reader edits paths in one place.
+Loads `CLAUDE_CLADE_DIR` from paths.py so the reader edits paths in one place.
 
 Style (Nature Comm-style supp figures):
   - Arial, 7pt body
@@ -10,7 +9,7 @@ Style (Nature Comm-style supp figures):
 
 Clade override:
   - The DNA Zoo claude_*_clean.txt files (data/claude/) cover 6 named
-    clades and mis-classify ~40 species. GENUS_PATCH patches those.
+    clades; GENUS_PATCH assigns clades for the remaining genera.
 """
 from __future__ import annotations
 

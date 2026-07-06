@@ -41,8 +41,7 @@ from scipy import stats
 # ---------- paths / constants ----------
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from paths import (                                             # noqa: E402
-    REPO, ensure_out_dir, add_repo_to_syspath,
-    CKPT_ROOT as CKPT,
+    ensure_out_dir, add_repo_to_syspath,
     EPI_EVO2HIC_DIR, EPI_NODISTILL_DIR, EPI_EVO2EMB_HIC_DIR, EPI_RIDGE_DIR,
 )
 add_repo_to_syspath()
@@ -322,7 +321,6 @@ def plot_ablations(all_results, test_results, out_pdf):
     for row_idx, ablation in enumerate(ABLATIONS):
         baseline = ablation['baseline']
         bl_color = BASELINE_COLOR[baseline]
-        bl_display = DISPLAY_NAMES[baseline]
 
         for col_idx, cell in enumerate(CELLS):
             ax = axes[row_idx, col_idx]

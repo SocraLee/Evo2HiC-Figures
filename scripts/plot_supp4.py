@@ -1,4 +1,4 @@
-"""Supplementary Figure 18: UMAP of raw Evo 2 embeddings on human chr 10,
+"""Supplementary Figure 4: UMAP of raw Evo 2 embeddings on human chr 10,
 coloured by GM12878 epigenomic signals.
 
 Companion to Fig 2 h-j. Whereas Fig 2 h-j embeds the Evo2HiC encoder
@@ -18,7 +18,7 @@ Inputs
 
 Output
 ------
-Figures/supplementary_18.pdf
+Figures/supplementary_4.pdf
 """
 from __future__ import annotations
 import sys
@@ -31,11 +31,11 @@ from scipy.stats import gaussian_kde, rankdata
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from paths import (                                              # noqa: E402
-    REPO, ensure_out_dir,
+    ensure_out_dir,
     EVO2_EMB_DIR, TRACKS_GM12878_CHR10_NPY as TRACKS_NPY,
 )
 
-OUT_PDF = ensure_out_dir() / "supplementary_18.pdf"
+OUT_PDF = ensure_out_dir() / "supplementary_4.pdf"
 
 CHR10_LEN = 66899
 EMB_DIM = 4096

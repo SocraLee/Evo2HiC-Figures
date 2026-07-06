@@ -16,9 +16,6 @@ from a single config file (`paths.py`).
    ```bash
    export PYTHONPATH=$(pwd):$PYTHONPATH
    ```
-3. (Optional) Override any path via env var — see top of
-   [paths.py](paths.py). The defaults match the lab-server layout that
-   produced the published figures.
 
 ## Usage
 
@@ -26,7 +23,7 @@ from a single config file (`paths.py`).
 
 ```bash
 # .py scripts
-python plot_revision/scripts/plot_supp13.py
+python plot_revision/scripts/plot_supp19.py
 ```
 
 PDFs are written to `Figures/` under the repo root by default. Override the
