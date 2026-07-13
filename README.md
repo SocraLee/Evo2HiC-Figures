@@ -6,9 +6,11 @@ from a single config file (`paths.py`).
 
 ## Prerequisites
 
+If already set up Evo2HiC environment, you can skip the following steps.
+
 1. Create and activate the plotting environment:
    ```bash
-   conda env create -f plot_revision/plot_revision.yaml
+   conda env create -f environment.yaml
    conda activate Evo2HiC-plot
    ```
 2. Add the repo root to PYTHONPATH (needed by scripts that import
@@ -33,8 +35,8 @@ export EVO2HIC_HIC_DATA=/path/to/hic_data       # raw Hi-C / DNA / embeddings
 export EVO2HIC_OUT_DIR=/path/to/figures         # optional; default <repo>/Figures
 ```
 
-`paths.py` is ordered **by figure** (Fig 1 → Supp 22); each section lists the
-checkpoints/data it needs. Checkpoint sub-folders use **clean placeholder names**
+`paths.py` is generally ordered **by figure** (Fig 1 → Supp 22); each section lists the
+checkpoints/data it needs. Checkpoint sub-folders use **placeholder names**
 (e.g. `hic_sr_evo2hic`) — download the released artifact into the matching name
 or symlink your local run to it.
 
@@ -42,24 +44,22 @@ or symlink your local run to it.
 
 ```bash
 # .py scripts
-python plot_revision/scripts/plot_supp19.py
+python scripts/plot_supp19.py
 ```
 
 ## Layout
 
 ```
-plot_revision/
+Evo2HiC-Figures/
 ├── paths.py              # single config, ordered by figure (clean placeholder names)
 ├── plot_settings.py      # color palette
 ├── plot_utils.py         # box/strip + significance helpers
 ├── _supp_style.py        # supp-figure rcParams + clade map
-├── plot_revision.yaml    # conda env recipe
+├── environment.yaml    # conda env recipe
 ├── scripts/              # one file per figure
-└── helper/               # producers for the shipped result tables (+ Borzoi /
-                          #   AlphaGenome baselines) — see helper/README.md
+└── helper/               # producers for intermediate results — see helper/README.md
 ```
 
-Result tables are shipped under `result/<figure>/` (one self-contained folder per
+Result tables are shipped under `result/<figure>/` (one folder per
 figure: `fig1`, …, `fig6`, `supp1`, …). A table read by several figures is copied
 into each of their folders; `helper/distribute_tables.py` reproduces that fan-out.
- 
