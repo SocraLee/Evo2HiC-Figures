@@ -1,4 +1,4 @@
-# plot_revision
+# Evo2HiC-Figures
 
 Companion folder for the main [Evo2HiC](../README.md) repo. Holds the
 scripts (and Jupyter notebooks) that regenerate every figure in the paper
