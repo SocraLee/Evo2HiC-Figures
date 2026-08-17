@@ -26,7 +26,7 @@ If already set up Evo2HiC environment, you can skip the following steps.
 
 Most scripts require *outputs* of the inference scripts. Therefore, make sure that you have already run the scripts from [`Evo2HiC`](https://github.com/CHNFTQ/Evo2HiC).
 
-Then point the three data roots at your local copies in [paths.py](paths.py)):
+Then point the three data roots at your local copies in [paths.py](paths.py):
 
 ```bash
 EVO2HIC_CKPT_ROOT="/path/to/checkpoints"   # released model checkpoints
@@ -41,7 +41,6 @@ EVO2HIC_OUT_DIR="/path/to/figures"        # optional
 Choose the script of interest, read the docstring on top and configure the related path variables.
 
 ```bash
-# .py scripts
 python scripts/plot_supp19.py
 ```
 
