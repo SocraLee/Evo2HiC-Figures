@@ -8,6 +8,8 @@ import numpy as np
 from scipy import stats
 from matplotlib.ticker import MaxNLocator
 
+colors = ['#fb8072', '#bebada', '#80b1d3', '#8dd3c7', '#fddaec']   # method palette (was plot_settings.py)
+
 _TEST_LOG = []
 
 
@@ -43,53 +45,53 @@ def _p_to_stars(p):
            "*"    if p < 5e-2 else "n.s."
 
 def _annotate_pair_asymmetric(ax, x_left, x_right, y_cap_left, y_cap_right,
-                              pad_frac=0.07,  # cap上方的额外padding（占y轴范围比例）
-                              arm_frac=0.07,   # 每条竖直脚再往上抬的高度（比例）
+                              pad_frac=0.07,  # extra padding above the cap (fraction of the y range)
+                              arm_frac=0.07,   # extra height of each vertical leg (fraction)
                               text="*", lw=0.5, fontsize=7):
     """
-    在 (x_left, y_cap_left) 和 (x_right, y_cap_right) 之上分别延伸不同长度的竖线，
-    顶部用一条水平线连接，并在中点标注 text。
-    pad_frac / arm_frac 按 y 轴范围的比例控制。
+    Draw vertical legs of different lengths above (x_left, y_cap_left) and (x_right, y_cap_right),
+    join them with a horizontal line at the top and put `text` above its midpoint.
+    pad_frac / arm_frac are fractions of the y range.
     """
     ymin, ymax = ax.get_ylim()
     yr = ymax - ymin
 
-    # 左右脚底部放在各自cap稍上方（pad），再各自抬高一段（arm）
+    # each leg starts slightly above its own cap (pad) and rises by arm
     yL_foot = y_cap_left  + pad_frac * yr
     yR_foot = y_cap_right + pad_frac * yr
     yL_top  = yL_foot + arm_frac * yr
     yR_top  = yR_foot + arm_frac * yr
     y_top = max(yL_top, yR_top)
 
-    # 顶部水平线放在较高的那个顶点处
+    # horizontal line at the higher of the two leg tops
     y_top = max(yL_top, yR_top)
 
-    # 画两条竖线（不等长）
+    # two vertical legs (different lengths)
     ax.plot([x_left,  x_left],  [yL_foot, y_top], color="black", lw=lw, clip_on=False)
     ax.plot([x_right, x_right], [yR_foot, y_top], color="black", lw=lw, clip_on=False)
 
-    # 顶部水平线
+    # horizontal line
     ax.plot([x_left, x_right], [y_top,  y_top],   color="black", lw=lw, clip_on=False)
 
-    # 文本放在水平线正上方一点
+    # text slightly above the horizontal line
     ax.text((x_left + x_right)/2, y_top + 0.006*yr, text,
             ha='center', va='bottom', fontsize=fontsize)
 
 def _paired_test(x, y, test="wilcoxon", alternative="two-sided"):
     """
-    x, y: 1D arrays of paired values (same length), NaN 已在外部对齐清理
+    x, y: 1D arrays of paired values (same length), NaN already removed in pairs by the caller
     test: 'wilcoxon' | 'ttest_rel' | 'sign'
-    alternative: 'two-sided'|'greater'|'less'（wilcoxon 与 sign 支持；ttest_rel 始终双侧）
+    alternative: 'two-sided'|'greater'|'less' (wilcoxon and sign; ttest_rel is always two-sided)
     """
     x = np.asarray(x); y = np.asarray(y)
-    # 仅保留两列都为非 NaN 的行 —— 配对对齐
+    # keep rows where both values are finite (paired alignment)
     mask = np.isfinite(x) & np.isfinite(y)
     x, y = x[mask], y[mask]
     if len(x) == 0:
         return {"stat": np.nan, "p": np.nan, "n": 0, "test": test}
 
     if test == "wilcoxon":
-        # 注意：wilcoxon 要求非零差；全零差时返回 n.s.
+        # wilcoxon needs non-zero differences; all-zero differences return n.s.
         diff = x - y
         nonzero = diff != 0
         if nonzero.sum() == 0:
@@ -102,23 +104,23 @@ def _paired_test(x, y, test="wilcoxon", alternative="two-sided"):
         return {"stat": float(t), "p": float(p), "n": int(len(x)), "test": "ttest_rel"}
 
     elif test == "sign":
-        # 符号检验：忽略零差，只看 x>y 的个数
+        # sign test: ignore ties, count x > y
         diff = x - y
         pos = np.sum(diff > 0)
         neg = np.sum(diff < 0)
         n_eff = pos + neg
         if n_eff == 0:
             return {"stat": 0.0, "p": 1.0, "n": len(x), "test": "sign(all zero diffs)"}
-        # 双侧/单侧 p 值
-        # 双侧：2 * min(P[X>=pos], P[X<=pos]) with X~Binom(n_eff, 0.5)
-        # 单侧：greater: P[X>=pos], less: P[X<=pos]
+        # two-sided / one-sided p-value
+        # two-sided: 2 * min(P[X>=pos], P[X<=pos]) with X~Binom(n_eff, 0.5)
+        # one-sided: greater: P[X>=pos], less: P[X<=pos]
         if alternative == "greater":
             p = stats.binomtest(pos, n_eff, 0.5, alternative="greater").pvalue
         elif alternative == "less":
             p = stats.binomtest(pos, n_eff, 0.5, alternative="less").pvalue
         else:
             p = stats.binomtest(pos, n_eff, 0.5, alternative="two-sided").pvalue
-        # 用 pos-neg 作为一个“方向性统计量”展示
+        # report pos - neg as a directional statistic
         return {"stat": float(pos - neg), "p": float(p), "n": int(len(x)), "test": "sign"}
 
     else:
@@ -131,8 +133,8 @@ def plot_grouped_box_with_points(
     ax: plt.Axes | None = None,
     box_width: float = 0.18,
     point_size: float = 0.5,
-    group_width: float = 0.55,   # 组内总宽度（方法们挤在这块里）
-    group_gap: float = 0.90,     # 组间距离（相邻 metric 的中心间隔）
+    group_width: float = 0.55,   # total width of one group (methods share it)
+    group_gap: float = 0.90,     # distance between group centres (adjacent metrics)
     colors = None,
     xlabel = '',
     ylabel = '',
@@ -142,38 +144,38 @@ def plot_grouped_box_with_points(
     ymin=None,
     ymax=None,
     title=None,
-    # === 新增：显著性检验相关 ===
-    pairs_per_group: list[tuple[str, str]] | None = None,  # 与 metrics 同顺序的一串 (methodA, methodB)
+    # === significance tests ===
+    pairs_per_group: list[tuple[str, str]] | None = None,  # one (methodA, methodB) per metric, same order as metrics
     test: str = "wilcoxon",
     alternative: str = "two-sided",
-    pad_frac: float = 0.07,   # 与 _annotate_pair_asymmetric 一致
+    pad_frac: float = 0.07,   # same as _annotate_pair_asymmetric
     arm_frac: float = 0.07,
     anno_lw: float = 0.5,
     anno_fontsize: int = 7,
-    # 自定义如何把 p 转成文本；默认用星号
+    # how p is turned into text; stars by default
     p_to_text = None,
-    # 计算箱线图“cap高度”的策略（Tukey whisker）
+    # box 'cap' height (Tukey whisker)
     whisker_iqr: float = 1.5,
     log_panel: str | None = None,
 ):
     """
-    df_long: 长表数据，至少包含 ['Method','Metric','Value']。
-    pairs_per_group: 与 metrics 一一对应的配对 (left_method, right_method)，每组做一次检验与标注。
-                     如果为 None 或长度与 metrics 不一致，则不做显著性标注。
-    test / alternative: 传给 _paired_test 的参数。
-    pad_frac / arm_frac / anno_*: 控制不等长支架绘制。
-    p_to_text: Callable[[float], str]，将 p 值转成文本；默认使用 _p_to_stars。
-    whisker_iqr: 箱线图“胡须”长度的 IQR 倍数（Tukey 1.5*IQR 规则）。
-    返回：一个 list[dict]，每个元素记录该组检验的结果（metric, left, right, stat, p, n, test, text）。
+    df_long: long-format data with at least ['Method','Metric','Value'].
+    pairs_per_group: one pair (left_method, right_method) per metric; each group gets one test and annotation.
+                     If None or not the same length as metrics, no significance is annotated.
+    test / alternative: passed to _paired_test.
+    pad_frac / arm_frac / anno_*: control the asymmetric brackets.
+    p_to_text: Callable[[float], str] turning p into text; default _p_to_stars.
+    whisker_iqr: whisker length in IQR units (Tukey 1.5*IQR rule).
+    Returns: list[dict], one record per group test (metric, left, right, stat, p, n, test, text).
     """
     assert {'Method','Metric','Value'}.issubset(df_long.columns), \
-        "df_long 必须至少包含列: Method, Metric, Value"
+        "df_long must contain at least the columns: Method, Metric, Value"
 
     if ax is None:
         ax = plt.gca()
 
     if p_to_text is None:
-        p_to_text = _p_to_stars  # 用你的 helper
+        p_to_text = _p_to_stars  # helper
 
     ax.clear()
     ax.set_aspect('auto')
@@ -186,13 +188,13 @@ def plot_grouped_box_with_points(
     if colors is None:
         colors = sns.color_palette("Set2", n_colors=len(methods))
 
-    # 颜色
+    # colours
     palette = {m: colors[i] for i, m in enumerate(methods)}
 
-    # 每个 metric 组的中心位置
+    # centre of each metric group
     centers = {metric: i * (group_width + group_gap) for i, metric in enumerate(metrics)}
 
-    # 组内每个 method 的偏移（等距分布在 group_width 里）
+    # offset of each method within a group (evenly spaced over group_width)
     k = len(methods)
     if k == 1:
         offsets = {methods[0]: 0.0}
@@ -200,7 +202,7 @@ def plot_grouped_box_with_points(
         inner_positions = np.linspace(-group_width/2, group_width/2, k)
         offsets = {m: inner_positions[i] for i, m in enumerate(methods)}
 
-    # 便捷函数：按 Tukey 规则计算“上胡须 cap”高度（不画点时 cap ≈ whisker 顶）
+    # helper: upper whisker cap by the Tukey rule (cap ~ whisker top when no points are drawn)
     def _whisker_top(values: np.ndarray) -> float:
         values = np.asarray(values, float)
         values = values[np.isfinite(values)]
@@ -215,7 +217,7 @@ def plot_grouped_box_with_points(
         return float(np.max(cand))
 
     # —— boxplot —— #
-    # 顺手把每个 (method, metric) 的 cap_top 算好，后面标注要用
+    # cap_top of every (method, metric), used for the annotations
     cap_tops = {}  # (metric, method) -> cap_top
     for i, method in enumerate(methods):
         for metric in metrics:
@@ -227,7 +229,7 @@ def plot_grouped_box_with_points(
                 continue
             x = centers[metric] + offsets[method]
             ax.boxplot(
-                [values],  # 必须包 list
+                [values],  # must be wrapped in a list
                 positions=[x],
                 widths=box_width,
                 patch_artist=True,
@@ -239,7 +241,7 @@ def plot_grouped_box_with_points(
             )
             cap_tops[(metric, method)] = _whisker_top(values)
 
-    # —— points（显式计算每个点的 x 坐标来代替 seaborn 的 dodge） —— #
+    # -- points (x position of every point computed explicitly instead of seaborn's dodge) -- #
     df_plot = df_long.dropna(subset=['Method', 'Metric', 'Value']).copy()
     df_plot = df_plot[df_plot['Method'].isin(methods) & df_plot['Metric'].isin(metrics)]
     df_plot['__x__'] = [
@@ -254,14 +256,14 @@ def plot_grouped_box_with_points(
         ax.scatter(
             sub['__x__'].values + jitter,
             sub['Value'].values,
-            s=point_size**2,  # s 是面积
+            s=point_size**2,  # s is an area
             alpha=0.6,
             linewidths=0,
             color=palette[m],
             label=m
         )
 
-    # 轴与样式
+    # axes and style
     xticks = [centers[m] for m in metrics]
     if show_xticks:
         ax.set_xticks(xticks)
@@ -293,23 +295,23 @@ def plot_grouped_box_with_points(
     if title is not None:
         ax.set_title(title)
 
-    # === 显著性（逐 group 一对） ===
+    # === significance (one pair per group) ===
     test_records = []
     if pairs_per_group is not None and len(pairs_per_group) == len(metrics):
-        # 选配对对齐的索引列（用于“配对”对齐）。优先 ['Name','Chr']，再退化到 ['Name']，再退化到“行号对齐”。
+        # index columns for paired alignment: ['Name','Chr'] if present, else ['Name'], else row order
         if {'Name','Chr'}.issubset(df_long.columns):
             idx_cols = ['Name', 'Chr']
         elif 'Name' in df_long.columns:
             idx_cols = ['Name']
         else:
-            idx_cols = None  # 退化策略见下
+            idx_cols = None  # fallback below
 
         for metric, (left_m, right_m) in zip(metrics, pairs_per_group):
-            # 只在该 metric 下取两种方法的数据并做“配对对齐”
+            # data of the two methods for this metric, aligned in pairs
             sub = df_long[df_long['Metric'] == metric].copy()
             need = {left_m, right_m}
             if not need.issubset(set(sub['Method'].unique())):
-                # 该组缺少其中一个方法，跳过
+                # one of the two methods is missing in this group: skip
                 continue
 
             if idx_cols is not None:
@@ -319,7 +321,7 @@ def plot_grouped_box_with_points(
                 x = pvt[left_m].values
                 y = pvt[right_m].values
             else:
-                # 退化：按每个方法在该 metric 内的出现顺序对齐（可能有风险，但聊胜于无）
+                # fallback: align by order of appearance within the metric (best effort)
                 sub_l = sub[sub['Method'] == left_m].reset_index(drop=True)
                 sub_r = sub[sub['Method'] == right_m].reset_index(drop=True)
                 n = min(len(sub_l), len(sub_r))
@@ -339,20 +341,20 @@ def plot_grouped_box_with_points(
             if log_panel is not None:
                 _TEST_LOG.append({"panel": log_panel, **record})
 
-            # 依据箱线图 cap 顶部来放置不等长支架
+            # place the asymmetric bracket on the box caps
             capL = cap_tops.get((metric, left_m), np.nan)
             capR = cap_tops.get((metric, right_m), np.nan)
             if not (np.isfinite(capL) and np.isfinite(capR)):
-                # 如果某一侧没有 cap（该侧没有数据），就跳过标注
+                # skip if one side has no cap (no data)
                 continue
 
             xL = centers[metric] + offsets[left_m]
             xR = centers[metric] + offsets[right_m]
 
-            # 先确保 ylim 足够高（避免被裁剪）
+            # make sure ylim is high enough (avoid clipping)
             ymin_now, ymax_now = ax.get_ylim()
             yr = ymax_now - ymin_now
-            # 预计 y_top 会再往上加一点，提前抬高上限
+            # y_top will rise a little more; raise the upper limit in advance
             y_top_expect = max(capL, capR) + (pad_frac + arm_frac + 0.03) * yr
             if y_top_expect > ymax_now:
                 ax.set_ylim(top=y_top_expect)
@@ -390,11 +392,11 @@ def plot_box_with_points(
     ymin=None,
     ymax=None,
     yticks_num = None,
-    # === 配对显著性（只比较一对） ===
-    sig_pair=None,               # 例如 ("Evo2HiC","HiC-only")
-    test="wilcoxon",             # 'wilcoxon'（默认）|'ttest_rel'|'sign'
-    alternative="greater",     # 'two-sided'|'greater'|'less'（ttest_rel 总是双侧）
-    show_p_text=False,           # 显示 p 数值还是星号
+    # === paired significance (one pair only) ===
+    sig_pair=None,               # e.g. ("Evo2HiC","HiC-only")
+    test="wilcoxon",             # 'wilcoxon' (default)|'ttest_rel'|'sign'
+    alternative="greater",     # 'two-sided'|'greater'|'less' (ttest_rel is always two-sided)
+    show_p_text=False,           # show the p-value instead of stars
     bracket_lw=0.5,
     log_panel=None,
     log_metric=None,
@@ -404,7 +406,7 @@ def plot_box_with_points(
     if colors is None:
         colors = sns.color_palette("Set2", n_colors=len(methods))
 
-    # 箱线图
+    # box plot
     data_list = [df[m].dropna().values for m in methods]
     x_positions = np.arange(len(methods), dtype=float)
 
@@ -428,7 +430,7 @@ def plot_box_with_points(
     for i, med in enumerate(bp["medians"]):
         med.set_color(colors[i]); med.set_linewidth(line_width_median)
 
-    # 叠加散点
+    # overlay points
     sns.stripplot(
         data=df[methods],
         ax=ax,
@@ -439,7 +441,7 @@ def plot_box_with_points(
         edgecolor=None
     )
 
-    # 轴 & 标题
+    # axes and title
     if show_methods:
         ax.set_xticks(x_positions + 0.3)
         ax.set_xticklabels(methods, rotation=30, ha='right')
@@ -452,13 +454,13 @@ def plot_box_with_points(
     sns.despine(ax=ax)
     ax.tick_params(axis='y', length=2)
 
-    # === 配对显著性（只一对） ===
+    # === paired significance (one pair only) ===
     if sig_pair is not None:
         a, b = sig_pair
         if a in methods and b in methods:
             i, j = methods.index(a), methods.index(b)
 
-            # 成对对齐
+            # paired alignment
             xv = df[a].values
             yv = df[b].values
             mask = np.isfinite(xv) & np.isfinite(yv)
@@ -477,18 +479,18 @@ def plot_box_with_points(
                 })
 
             def _upper_cap_y(bp, idx):
-                cap = bp["caps"][2*idx + 1]  # 上端 cap
+                cap = bp["caps"][2*idx + 1]  # upper cap
                 return float(np.max(cap.get_ydata()))
 
-            # … 前面完成检验后 …
-            # 获取两组箱线图各自 cap 顶部 y 值
+            # ... after the test ...
+            # y of the top cap of each of the two boxes
             y_cap_i = _upper_cap_y(bp, i)
             y_cap_j = _upper_cap_y(bp, j)
 
-            # 先确保 ylim 足够（stripplot 后再取）
+            # make sure ylim is high enough (after the stripplot)
             ymin0, ymax0 = ax.get_ylim()
 
-            # 用不等脚支架：两脚分别贴各自 cap 上方
+            # asymmetric bracket: each leg sits on its own cap
             _annotate_pair_asymmetric(
                 ax,
                 x_left=x_positions[min(i, j)],
@@ -500,7 +502,7 @@ def plot_box_with_points(
                 fontsize=7
             )
 
-            # 如有需要，抬高 y 上界，避免文本被裁剪
+            # raise the upper y limit if needed so the text is not clipped
             ymin_after, ymax_after = ax.get_ylim()
             yr = ymax_after - ymin_after
             target_top = max(y_cap_i, y_cap_j) + (0.015 + 0.02 + 0.01) * yr

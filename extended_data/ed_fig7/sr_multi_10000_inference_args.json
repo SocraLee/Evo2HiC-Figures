@@ -1,0 +1,23 @@
+{
+  "resolution": 2000,
+  "LC_option": "Yes",
+  "chunk": 160,
+  "stride": 120,
+  "max_seperation": 2000000,
+  "downsample": 16,
+  "read_count": "bin-coverage",
+  "normalization": "mixed",
+  "max_reads": 5000,
+  "denominator": 10,
+  "step": null,
+  "species": "multi",
+  "DNA_option": "Yes",
+  "evo2_option": "No",
+  "save_dir": "multi_10000",
+  "seed": 0,
+  "split": "test",
+  "batch_size": 64,
+  "input_file": null,
+  "data_index": 0,
+  "target_resolution": 10000
+}

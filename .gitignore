@@ -1,0 +1,15 @@
+# Python / Jupyter caches
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Figures and intermediate outputs written by the scripts
+Figures/
+main/table1/logs/
+main/table1/tensors/
+main/table1/checkpoints/
+extended_data/*/tmp_*/
+extended_data/*/*/tmp_*/
+
+# generated input (helper/make_tracks_gm12878_chr10.py)
+data/tracks_GM12878_10.npy

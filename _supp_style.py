@@ -1,6 +1,6 @@
 """Shared style + clade utilities for the supp 13 / 19 / 20 set.
 
-Loads `CLAUDE_CLADE_DIR` from paths.py so the reader edits paths in one place.
+Loads `CLADE_DIR` from paths.py so the reader edits paths in one place.
 
 Style (Nature Comm-style supp figures):
   - Arial, 7pt body
@@ -8,7 +8,7 @@ Style (Nature Comm-style supp figures):
   - No panel titles (captions live in the manuscript)
 
 Clade override:
-  - The DNA Zoo claude_*_clean.txt files (data/claude/) cover 6 named
+  - The DNA Zoo clade_*_clean.txt files (data/clade/) cover 6 named
     clades; GENUS_PATCH assigns clades for the remaining genera.
 """
 from __future__ import annotations
@@ -16,7 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 import matplotlib as mpl
 
-from paths import CLAUDE_CLADE_DIR
+from paths import CLADE_DIR
 
 
 GENUS_PATCH = [
@@ -84,13 +84,13 @@ GENUS_PATCH = [
 ]
 
 
-def load_clade_map(cdir: Path = CLAUDE_CLADE_DIR) -> dict:
-    """Read claude_*_clean.txt then expand with GENUS_PATCH so every
+def load_clade_map(cdir: Path = CLADE_DIR) -> dict:
+    """Read clade_*_clean.txt then expand with GENUS_PATCH so every
     species in result/multi/SPC.csv falls into one of the named clades."""
     species2clade: dict[str, str] = {}
     for f in sorted(cdir.iterdir()):
-        if f.name.startswith('claude_') and f.name.endswith('_clean.txt'):
-            cl = f.name.replace('claude_', '').replace('_clean.txt', '')
+        if f.name.startswith('clade_') and f.name.endswith('_clean.txt'):
+            cl = f.name.replace('clade_', '').replace('_clean.txt', '')
             with open(f) as fh:
                 for line in fh:
                     s = line.strip()

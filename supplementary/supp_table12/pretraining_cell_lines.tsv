@@ -1,0 +1,47 @@
+Lineage	Cell line / Tissue	n_maps	Protocol
+Cardiac	heart	33	intact / in situ Hi-C
+Gastrointestinal	colon	9	intact / in situ Hi-C
+Gastrointestinal	colonic mucosa	1	intact Hi-C
+Gastrointestinal	esophagus muscularis mucosa	1	intact Hi-C
+Gastrointestinal	esophagus squamous epithelium	1	intact Hi-C
+Gastrointestinal	stomach	1	intact Hi-C
+Immune - T / NK	T cell	7	intact Hi-C
+Immune - T / NK	activated T-helper 2 cell	1	intact Hi-C
+Immune - T / NK	T-helper 2 cell	1	intact Hi-C
+Immune - T / NK	natural killer cell	1	intact Hi-C
+Immune - Myeloid	CD14-positive monocyte	2	intact Hi-C
+Immune - Myeloid	dendritic cell	1	intact Hi-C
+Immune - B lymphocyte	Ramos (B-cell lymphoma)	1	in situ Hi-C
+Immune - B lymphocyte	OCI-LY7 (B-cell lymphoma)	1	intact Hi-C
+Lymphoblastoid	GM18951	1	in situ Hi-C
+Respiratory	lung	6	intact Hi-C
+Embryonic stem cell	H9	5	in situ Hi-C
+Embryonic stem cell	CyT49 (hESC-derived)	4	in situ Hi-C
+Induced pluripotent stem cell	WTC-11	2	in situ Hi-C
+Induced pluripotent stem cell	GM23248	1	in situ Hi-C
+Fibroblast	HFF	3	in situ Hi-C / Micro-C
+Skeletal muscle	gastrocnemius medialis	5	in situ / intact Hi-C
+Skeletal muscle	psoas muscle	2	intact Hi-C
+Reproductive	ovary	4	intact Hi-C
+Reproductive	placenta	1	intact Hi-C
+Reproductive	testis	1	intact Hi-C
+Reproductive	uterus	1	intact Hi-C
+Reproductive	vagina	1	intact Hi-C
+Endocrine / Glandular	pancreas	4	intact Hi-C
+Endocrine / Glandular	adrenal gland	2	intact Hi-C
+Endocrine / Glandular	thyroid gland	1	intact Hi-C
+Vascular	aorta	2	intact Hi-C
+Vascular	ascending aorta	1	intact Hi-C
+Vascular	posterior vena cava	1	intact Hi-C
+Vascular	tibial artery	1	intact Hi-C
+Hepatic	right lobe of liver	2	intact Hi-C
+Neural	dorsolateral prefrontal cortex	1	intact Hi-C
+Neural	head of caudate nucleus	1	intact Hi-C
+Neural	sciatic nerve	1	intact Hi-C
+Cancer cell line	HCT116 (colorectal)	3	in situ / intact Hi-C
+Cancer cell line	HeLa (cervical)	1	in situ Hi-C
+Cancer cell line	A673 (Ewing sarcoma)	1	intact Hi-C
+Epithelial / Skin	mammary epithelial cell	1	in situ Hi-C
+Epithelial / Skin	lower leg skin	1	intact Hi-C
+Renal	kidney	1	intact Hi-C
+Urogenital	prostate gland	1	intact Hi-C
